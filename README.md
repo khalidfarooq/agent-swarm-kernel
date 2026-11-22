@@ -8,50 +8,59 @@
    /_/   \_\____|_____|_| \_| |_|   |____/  \_/_/   \_\_| \_\_|  |_| |_|\_\_____|_| \_\_| \_|_____|_____|
 ```
 
-> **The High-Throughput User-Space Microkernel & Lock-Free Thread-per-Core Runtime for Autonomous AI Agent Swarms**  
-> *Engineered in Rust. Microsecond-deterministic scheduling. 6M+ message ops/sec. Zero-copy SPSC IPC.*
+> **An Experimental High-Throughput User-Space Scheduling & Lock-Free IPC Substrate for AI Agent Swarms**  
+> *Engineered in Rust. Thread-per-core architecture. Zero-lock SPSC message passing. Early-stage systems prototype.*
 
 [![CI](https://github.com/khalidfarooq/agent-swarm-kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/khalidfarooq/agent-swarm-kernel/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Rust 1.83+](https://img.shields.io/badge/rust-1.83%2B-orange.svg)](#)
-[![Throughput: 6M+ ops/sec](https://img.shields.io/badge/Throughput-6.1M%20ops%2Fsec-brightgreen.svg)](#)
-[![Concurrency: 100K+ Agents](https://img.shields.io/badge/Concurrency-100%2C000%2B%20Agents-blueviolet.svg)](#)
+[![Status: Experimental Prototype](https://img.shields.io/badge/Status-Experimental%20Prototype-yellow.svg)](#)
 
 ---
 
-## 🖥️ Terminal Demo
+## 🖥️ Terminal Benchmark Demo
 
 ![Agent Swarm Kernel Demo](assets/demo.gif)
 
 ---
 
-## ⚡ What is Agent Swarm Kernel (`ask`)?
+## 🔍 What is Agent Swarm Kernel (`ask`)?
 
-Current multi-agent frameworks (LangGraph, CrewAI, AutoGen) treat autonomous agents as high-level Python objects glued together with `asyncio`, JSON serialization over HTTP/WebSocket, and centralized SQLite/PostgreSQL locking.
+**Agent Swarm Kernel (`ask`)** is an experimental systems project exploring how techniques from high-frequency trading (HFT) and thread-per-core operating systems (e.g., Seastar, ScyllaDB, DPDK) can be applied to the **coordination and scheduling layer** of massive multi-agent systems.
 
-The result is catastrophic coordination overhead:
-- **Framework overhead:** 1,100ms – 4,100ms wasted *per step* in coordination alone.
-- **Scaling ceiling:** Frameworks choke and crash when scaling past 200–500 concurrent agents due to the Python GIL and event loop starvation.
-- **Resource bloat:** Gigabytes of RAM wasted on duplicate object state and serialization buffers.
+### What it IS:
+- A **user-space scheduling runtime** written in Rust that pins execution reactors to physical CPU cores.
+- A **lock-free message router** using cache-line padded Single-Producer Single-Consumer (SPSC) ring buffers to pass messages across cores without mutex contention.
+- An architectural exploration into how low the coordination overhead of multi-agent state machines can go on modern multi-core hardware.
 
-**Agent Swarm Kernel (`ask`)** brings high-frequency trading (HFT) and microkernel operating system principles to AI agent orchestration:
-- ⚡ **Thread-per-Core Sharded Reactor:** Shared-nothing architecture pinning one reactor per physical CPU core, eliminating lock contention.
-- ⏳ **Lock-Free SPSC Ring Buffers:** Inter-core agent communication via cache-line padded Single-Producer Single-Consumer ring buffers delivering **6M+ message ops/sec with ~650ns transfer latency**.
-- 🛡️ **Sub-Microsecond Cooperative Scheduling:** Stackless async task dispatch switching agent contexts in **10–50 nanoseconds**.
-- 📦 **Zero-Copy Memory Arenas:** Agents exchange complex thought states and message envelopes through pre-allocated memory arenas, completely bypassing JSON encoding/decoding.
-- 🚀 **Massive Concurrency:** Schedules **100,000+ concurrent agents** deterministically on commodity developer hardware (~280 bytes memory per agent).
+### What it IS NOT:
+- **It is NOT an LLM inference engine.** It does not generate tokens, host neural network weights, or magically make cloud API calls (OpenAI, Anthropic) faster.
+- **It is NOT a drop-in replacement for full-stack application frameworks yet.** It does not currently manage complex prompt templates, web search integrations, or vector database embeddings out of the box.
 
 ---
 
-## 📊 Benchmark Comparisons (100,000 Agents)
+## 📊 Benchmarks: An Honest Technical Breakdown
 
-| Metric | CrewAI (Python) | LangGraph (Python) | AutoGen (Python) | **Agent Swarm Kernel (`ask`)** |
-| :--- | :---: | :---: | :---: | :---: |
-| **Throughput** | ~45 ops/sec | ~210 ops/sec | ~180 ops/sec | **6,084,441 ops/sec** (⚡ **28,000x faster**) |
-| **Transit Latency** | ~3,400 ms | ~1,100 ms | ~4,100 ms | **656.3 ns** (⚡ **1,600,000x faster**) |
-| **Max Concurrent Agents** | ~150 | ~250 | ~200 | **100,000+** |
-| **Memory per Agent** | ~25 MB | ~12 MB | ~30 MB | **~280 bytes** |
-| **Scheduling Model** | Python GIL + OS Threads | Asyncio Event Loop | Asyncio GroupChat | **Thread-per-Core Lock-Free SPSC** |
+The benchmark command (`ask bench --agents 100000 --cores 4`) measures **pure coordination and IPC transit throughput**: how fast the scheduler can dispatch in-memory agent state machines and push message envelopes across physical CPU cores.
+
+```text
+══════════════════════════════════════════════════════════════════════
+  📊 AGENT SWARM KERNEL BENCHMARK RESULTS (Synthetic In-Memory Relay)
+══════════════════════════════════════════════════════════════════════
+  Active Concurrent Agents:                          100,000
+  Physical Core Reactors:                                  4
+  Benchmark Duration:                                 3.01 s
+  Total Messages Processed:                         18,341,300
+  IPC Throughput:                         6,084,441.35 ops/sec
+  Avg Message Transit Latency:                      656.3 ns
+  Memory per Agent Struct:                        ~280 bytes
+══════════════════════════════════════════════════════════════════════
+```
+
+### The Apples-to-Oranges Reality:
+- **Why Python frameworks (LangGraph, CrewAI) measure lower ops/sec:** In existing Python frameworks, an "agent step" typically incurs JSON serialization, SQLite/PostgreSQL checkpoint locking, Python GIL contention, and asyncio task overhead.
+- **Why ASK measures 6M+ ops/sec:** In this microbenchmark, lightweight agent structs (`RelayAgent`) simply increment an atomic counter and push a byte payload into a dedicated SPSC ring buffer in L1/L2 cache. 
+- **The Takeaway:** The benchmark proves that **the coordination layer does not have to be the bottleneck**. By eliminating locks, the GIL, and dynamic allocations on the hot path, scheduling overhead drops from milliseconds to nanoseconds.
 
 ---
 
@@ -96,10 +105,29 @@ flowchart TD
 
 ## 📦 Workspace Crates
 
-- **`ask-core`**: Core agent abstractions (`Agent`, `AgentId`, `AgentState`, `Context`, `MessageEnvelope`, `ExecutionStats`).
-- **`ask-ipc`**: Cache-line aligned SPSC lock-free circular ring buffers (`rtrb`), cross-core routing mesh, and zero-copy memory arenas.
+- **`ask-core`**: Core abstractions (`Agent`, `AgentId` with bitpacked shard IDs, `AgentState`, `Context`, `MessageEnvelope`, `ExecutionStats`).
+- **`ask-ipc`**: Pairwise SPSC lock-free circular ring buffers (`rtrb`), cross-core routing mesh, and shared memory abstractions.
 - **`ask-scheduler`**: Thread-per-core pinned reactors (`ShardReactor`), shard dispatchers, cooperative tick scheduler, and the multi-core `Kernel` controller.
-- **`ask-cli`**: High-performance developer CLI providing stress testing (`ask bench`), swarm topology execution (`ask run`), and real-time terminal monitoring (`ask monitor`).
+- **`ask-cli`**: Developer CLI providing stress testing (`ask bench`), swarm topology execution (`ask run`), and real-time terminal monitoring (`ask monitor`).
+
+---
+
+## 🚧 Current Status & Technical Roadmap
+
+This repository is currently a **Phase 0 architectural foundation**. Here is the transparent breakdown of what exists today and what is being built next:
+
+### ✅ Implemented Today
+- [x] Thread-per-core sharded reactor architecture (`ShardReactor`).
+- [x] Lock-free pairwise SPSC circular ring buffers with zero mutexes.
+- [x] In-memory agent state machine (`AgentId`, lifecycle hooks, cooperative dispatch).
+- [x] Synthetic multi-core stress benchmark harness scaling to 100,000 in-memory agents.
+- [x] Cross-platform build & test suite (macOS and Linux CI).
+
+### ⏳ Work in Progress / Next Milestones
+- [ ] **Async I/O Worker Pool:** Offloading long-running external I/O (LLM API requests, tool execution) to non-reactor threads so core reactors never stall.
+- [ ] **State Pagination & Cold Storage:** Storing full agent contexts and conversation histories in NVMe/RocksDB with lazy on-demand paging, rather than holding raw contexts in RAM.
+- [ ] **Dynamic Topology & Graph Routing:** Moving beyond static ring/mesh topologies to dynamic actor-addressed DAGs with supervision trees.
+- [ ] **Credit-Based Backpressure:** Throttling fast upstream producers when downstream consumer ring buffers approach saturation.
 
 ---
 
@@ -113,25 +141,10 @@ cd agent-swarm-kernel
 cargo build --release
 ```
 
-### 2. Run High-Velocity Benchmark (100,000 Agents)
+### 2. Run In-Memory Benchmark (100,000 Agents)
 
 ```bash
 ./target/release/ask bench --agents 100000 --cores 4 --duration 3
-```
-
-*Sample Output:*
-```text
-══════════════════════════════════════════════════════════════════════
-  📊 AGENT SWARM KERNEL BENCHMARK RESULTS
-══════════════════════════════════════════════════════════════════════
-  Active Concurrent Agents:                          100000
-  Physical Core Reactors:                                 4
-  Benchmark Duration:                                3.01 s
-  Total Messages Processed:                        18341300
-  Throughput (Message Ops/Sec):          6084441.35 ops/sec
-  Avg Message Transit Latency:                     656.3 ns
-  Lightweight Memory Per Agent:                  ~280 bytes
-──────────────────────────────────────────────────────────────────────
 ```
 
 ### 3. Run a Swarm Topology Simulation
@@ -149,8 +162,6 @@ cargo build --release
 ---
 
 ## 🧪 Testing
-
-Agent Swarm Kernel includes complete unit tests and end-to-end multi-core execution tests:
 
 ```bash
 cargo test --workspace
