@@ -1,0 +1,13 @@
+[package]
+name = "ask-scheduler"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+ask-core.workspace = true
+ask-ipc.workspace = true
+crossbeam-utils.workspace = true
+crossbeam-channel.workspace = true
+parking_lot.workspace = true

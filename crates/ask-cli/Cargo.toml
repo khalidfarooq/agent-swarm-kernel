@@ -1,0 +1,21 @@
+[package]
+name = "ask-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ask"
+path = "src/main.rs"
+
+[dependencies]
+ask-core.workspace = true
+ask-ipc.workspace = true
+ask-scheduler.workspace = true
+clap.workspace = true
+colored.workspace = true
+indicatif.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
