@@ -62,6 +62,7 @@ dependencies = [
  "clap",
  "colored",
  "indicatif",
+ "libc",
  "parking_lot",
  "serde",
  "serde_json",
@@ -95,6 +96,7 @@ dependencies = [
  "ask-ipc",
  "crossbeam-channel",
  "crossbeam-utils",
+ "libc",
  "parking_lot",
 ]
 
