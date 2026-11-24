@@ -28,7 +28,7 @@ impl Agent for TestWorkerAgent {
                 self.target_id,
                 env.seq + 1,
                 MessageKind::Thought,
-                b"step".to_vec(),
+                b"step",
             ));
         }
         ExecutionResult::Ok
@@ -67,7 +67,7 @@ fn test_e2e_multi_core_swarm_execution() {
             AgentId::new(c as u16, 0),
             0,
             MessageKind::Thought,
-            b"init".to_vec(),
+            b"init",
         ));
     }
 
